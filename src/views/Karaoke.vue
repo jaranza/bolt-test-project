@@ -2,10 +2,10 @@
       <div>
         <h1>Karaoke Mode</h1>
         <audio ref="audio" controls>
-          <source src="https://jaranza.online/1.mp3" type="audio/mpeg">
+          <source :src="mp3Source" type="audio/mpeg">
           Your browser does not support the audio element.
         </audio>
-        <div v-for="(line, index) in lyrics" :key="index" :class="{ 'highlight': currentLine === index }">
+        <div v-for="(line, index) in visibleLyrics" :key="index" :class="{ 'highlight': currentLine === index + startIndex }">
           {{ line.text }}
         </div>
       </div>
@@ -15,8 +15,8 @@
     export default {
       name: 'Karaoke',
       data() {
-        return { lyrics : 
-[
+        return {
+          lyrics: [
   {
     "text": "Some people suppress you",
     "time": 34.055
@@ -119,20 +119,56 @@
   }
 ],
           currentLine: 0,
+          startIndex: 0,
+          mp3Source: 'https://jaranza.online/1.mp3',
         };
       },
+      computed: {
+        visibleLyrics() {
+          return this.lyrics.slice(this.startIndex, this.startIndex + 5);
+        },
+      },
       mounted() {
+        this.loadStoredData();
         this.$refs.audio.addEventListener('timeupdate', this.syncLyrics);
       },
       beforeUnmount() {
         this.$refs.audio.removeEventListener('timeupdate', this.syncLyrics);
       },
       methods: {
+        loadStoredData() {
+          const storedLyrics = localStorage.getItem('lyrics');
+          const storedMp3Source = localStorage.getItem('mp3Source');
+          if (storedLyrics) {
+            this.lyrics = JSON.parse(storedLyrics);
+          }
+          if (storedMp3Source) {
+            this.mp3Source = storedMp3Source;
+          }
+        },
         syncLyrics() {
           const currentTime = this.$refs.audio.currentTime;
           this.currentLine = this.lyrics.findIndex((line, index) => {
             return currentTime >= line.time && (index === this.lyrics.length - 1 || currentTime < this.lyrics[index + 1].time);
           });
+
+          // Update the startIndex to keep the current line in the middle of the visible lyrics
+          if (this.currentLine >= this.startIndex + 5) {
+            this.startIndex = Math.max(0, this.currentLine - 2);
+          } else if (this.currentLine < this.startIndex) {
+            this.startIndex = Math.max(0, this.currentLine - 2);
+          }
+        },
+      },
+      watch: {
+        lyrics: {
+          handler(newLyrics) {
+            localStorage.setItem('lyrics', JSON.stringify(newLyrics));
+          },
+          deep: true,
+        },
+        mp3Source(newMp3Source) {
+          localStorage.setItem('mp3Source', newMp3Source);
         },
       },
     };
